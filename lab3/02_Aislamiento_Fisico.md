@@ -10,21 +10,33 @@
 ###  Topología Propuesta y Esperada
 
 ```
-                         [ HOST ESXi 8.0 STANDALONE: 10.160.10.10 ]
-   +------------------------------------------------------------------------+
-   |  [ vSwitch0 ] (MTU 9000)                  [ vSwitch-DMZ ](MTU 1500)    |
-   |  Uplink: vmnic0                           Uplink: vmnic1               |
-   |     |                                        |                         |
-   |     +-- [ Management: vmk0 (10.160.10.10) ]  +-- [ PG_DMZ ]            |
-   |     |     Gateway: 10.160.10.2                     (VLAN 50)           |
-   |     |                                              (Hardened)          |
-   |     +-- [ PG_Storage: vmk1 ] (MTU 9000)                |               |
-   |           (VLAN 30 - 10.160.30.10)                     |               |
-   +--------------------------------------------------------|---------------+
-                 |                                          |
-           [ vmnic0 ]                                 [ vmnic1 ]
-                 |                                          |
-    [ Switch Físico LAN / Storage ]               [ Switch Físico DMZ ]
+                        [ HOST ESXi 8.0 STANDALONE: 10.160.10.10 ]
+ ====================================================================================================================
+   [ vSwitch0 - RED INTERNA Y STORAGE ] (MTU 9000)             [ vSwitch-DMZ - RED PÚBLICA / DMZ ] (MTU 1500)
+   Uplink Físico: vmnic0                                       Uplink Físico: vmnic1
+   ------------------------------------------------            ----------------------------------------------
+         |                                                           |
+         +---> [ Management Network ] (VLAN 0 / MTU 1500)            +---> [ PG_DMZ_External ] (VLAN 50 / MTU 1500)
+         |     Puerto VMkernel: vmk0                                       * Políticas de Seguridad: REJECT x3
+         |     IP: 10.160.10.10/24                                         * Conectado a:
+         |     Gateway: 10.160.10.2                                              |
+         |                                                                       +---> [ MicroVM-DMZ ]
+         +---> [ PG_LAN_Interna ] (VLAN 10 / MTU 1500)                                 IP: 10.160.50.50/24
+         |     * Conectado a:                                                          Gateway: 10.160.50.2
+         |           |
+         |           +---> [ MicroVM-Interna ]
+         |                 IP: 10.160.10.60/24
+         |                 Gateway: 10.160.10.2
+         |
+         +---> [ PG_Storage_NFS ] (VLAN 30 / MTU 9000)
+               Puerto VMkernel: vmk1
+               IP: 10.160.30.10/24
+               (Sin Gateway - Red Aislada de Almacenamiento)
+ ====================================================================================================================
+                 |                                                           |
+           [ vmnic0 ]                                                  [ vmnic1 ]
+                 |                                                           |
+      [ Switch Físico LAN / Storage ]                             [ Switch Físico / Firewall DMZ ]
 ```
 
 ---
