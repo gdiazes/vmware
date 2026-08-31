@@ -1,4 +1,8 @@
-[ TU PC FÍSICA (WINDOWS) / NAVEGADOR WEB ]
+
+##  Topología Arquitectónica Integral (Lab 2)
+
+```
+                       [ TU PC FÍSICA (WINDOWS) / NAVEGADOR WEB ]
                                            |
                                   Acceso HTTP: http://10.160.10.254:80
                                            |
@@ -44,3 +48,8 @@
            [ vmnic0 ]                                                     [ vmnic1 ]
                  |                                                              |
     [ Switch LAN / Storage Interno ]                              [ Switch DMZ / Enlace Perimetral ]
+```
+
+1. El servidor web es públicamente accesible sin exponer la IP interna.
+2. Un compromiso en la DMZ no permite el movimiento lateral hacia la red de producción.
+3. El tráfico de almacenamiento crítico permanece 100% aislado con tramas Jumbo (MTU 9000).
