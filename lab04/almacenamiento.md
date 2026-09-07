@@ -9,7 +9,7 @@ La arquitectura de despliegue correspondiente a esta sesión práctica, enfocada
 
 *Nota.* Elaboración propia. La imagen destaca la habilitación de cuatro volúmenes de almacenamiento conectados a un único hipervisor, la segmentación interna mediante nuevos conmutadores lógicos para Producción y Desarrollo, y el aprovisionamiento de máquinas virtuales (Alpine Linux) distribuidas equitativamente.
 
-### Topología Lógica de Infraestructura (Formato Texto)
+### Topología Lógica de Infraestructura 
 Para facilitar la comprensión de las relaciones lógicas que serán configuradas durante el laboratorio mediante comandos, el siguiente mapa estructural debe ser analizado:
 
 ```text
@@ -131,13 +131,13 @@ Para cumplir con el objetivo formativo, las siguientes capturas de pantalla debe
 2.  **Auditoría de Almacenamiento (CLI):** Ejecute el comando `esxcli storage filesystem list` para demostrar que los cuatro volúmenes (SCSI, NVMe, iSCSI, NFS) se encuentran montados correctamente en el sistema de archivos del núcleo.
 3.  **Auditoría de Orquestación (Web):** Capture la pantalla del *VMware Host Client* (Sección Virtual Machines), donde se visualicen las cuatro máquinas `Alpine-*` en estado **Encendido**. Se debe apreciar en las columnas correspondientes que están distribuidas rigurosamente en las redes de Producción y Desarrollo.
 
-## 6. Reto de Expertos (Opcional)
+## 6. Reto de Expertos 
 En este laboratorio, los conmutadores lógicos de Producción y Desarrollo (`vSwitch1` y `vSwitch2`) fueron creados sin asignarles tarjetas de red físicas (Uplinks), logrando un aislamiento total (Host-Only).
 *   **El Reto:** Asuma que su servidor físico dispone de una tarjeta de red adicional (`vmnic2`). Utilizando sus conocimientos de comandos CLI aprendidos en laboratorios previos, detalle (no ejecute, solo detalle en su informe) cuál sería la sintaxis exacta del comando `esxcfg-vswitch` requerida para enlazar el adaptador físico `vmnic2` al conmutador `vSwitch1` (Producción), permitiendo que esas máquinas tengan salida a Internet o al resto de la corporación.
 
 ---
 
-## 7. Rúbrica de Evaluación: Laboratorio 4 (Escala Vigesimal)
+## 7. Rúbrica de Evaluación: Laboratorio 4 
 
 **Puntaje Máximo:** 20 puntos. Se requiere un mínimo de 14/20 para aprobar la práctica.
 
