@@ -5,8 +5,7 @@ La arquitectura de despliegue correspondiente a esta sesión práctica, enfocada
 **Figura 1**
 *Topología Operativa del Laboratorio 4: Host ESXi Individual con Almacenamiento Distribuido y Redes Aisladas*
 
-> **[PROMPT PARA IMAGEN GENERADA CON IA - TOPOLOGÍA DEL LAB 4]**
-> *Prompt:* `Hand-drawn technical network diagram, isolated on a transparent background (pure solid white for easy cutout), no whiteboard, no background elements. COLORING INSTRUCTION: Highlight ALL components with solid dark green and teal fill colors. Layout: A single large rectangular boundary labeled "Servidor ESXi" (DO NOT draw vCenter or HA Clusters). Inside the "Servidor ESXi", draw FOUR small squares labeled "Alpine-VM". Below the VMs, draw TWO internal switch icons labeled "vSwitch1 (Producción)" and "vSwitch2 (Desarrollo)". Below the "Servidor ESXi" boundary, draw FOUR cylinder icons sequentially labeled "DAS SCSI", "DAS NVMe", "SAN iSCSI", and "NAS NFS". Connect the ESXi server to these cylinders with vertical lines. To the right of the network cylinders, draw a storage appliance block labeled "TrueNAS Appliance" connected to the "SAN iSCSI" and "NAS NFS" cylinders. Inside the "NAS NFS" cylinder, draw small folder icons labeled "ISOs" and "VMs". Simple line art, Fortinet documentation style, minimalist, Spanish text labels --ar 16:9`
+![Laboratorio 04](./lab04.jpg)
 
 *Nota.* Elaboración propia. La imagen destaca la habilitación de cuatro volúmenes de almacenamiento conectados a un único hipervisor, la segmentación interna mediante nuevos conmutadores lógicos para Producción y Desarrollo, y el aprovisionamiento de máquinas virtuales (Alpine Linux) distribuidas equitativamente.
 
