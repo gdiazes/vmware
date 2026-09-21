@@ -5,8 +5,8 @@ El diseño arquitectónico de este laboratorio colaborativo es ilustrado en la *
 **Figura 1**
 *Arquitectura Empresarial VMware vSphere 8.0: Data Centers Lima y Arequipa*
 
-> **[PROMPT PARA IMAGEN GENERADA CON IA - TOPOLOGÍA LAB 06]**
-> *Prompt:* `Hand-drawn comprehensive enterprise data center architecture diagram, isolated on a transparent background (pure solid white for easy cutout), no whiteboard. Top section: A dashed box labeled "VCHA" containing three "vCenter Server" blocks (Active, Passive, Witness) connected to a "Management Switch". Below this, a cloud labeled "Management & Inter-DC Backbone". Left section: A boundary labeled "Lima DC (Site A)" containing a "3-node ESXi Cluster" (ESXi-L01, ESXi-L02, ESXi-L03) all pointing down to a single cylinder labeled "vSAN Datastore". Right section: A boundary labeled "Arequipa DC (Site B)" containing a "2-node ESXi Cluster" (ESXi-A01, ESXi-A02) connected to a cylinder labeled "NAS Storage Appliance (iSCSI/NFS)". Bottom center: A unified logical switch connecting both sites labeled "vSphere Distributed Switch (vDS)". Simple line art, blue, green, and orange ink, Fortinet documentation style, minimalist, Spanish text labels --ar 16:9`
+<img width="1408" height="768" alt="image" src="https://github.com/user-attachments/assets/643aad91-fd75-4b09-8a1f-57ad84a22827" />
+
 
 *Nota.* Elaboración propia. La imagen ilustra la topología objetivo del caso práctico, donde dos sitios físicos independientes son unificados bajo una misma capa de orquestación y red distribuida.
 
