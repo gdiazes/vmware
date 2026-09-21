@@ -1,152 +1,116 @@
-# GUÍA DE LABORATORIO 6: ALMACENAMIENTO HÍBRIDO Y SEGREGACIÓN DE REDES
+# GUÍA DE LABORATORIO 6: ARQUITECTURA EMPRESARIAL MULTI-SITIO Y ALTA DISPONIBILIDAD (vSAN, vDS y CROSS-vMOTION)
 
-La arquitectura de despliegue correspondiente a esta sesión práctica, enfocada en un único host autónomo, es ilustrada de forma gráfica en la **Figura 1** y detallada lógicamente en la **Topología de Texto** adjunta.
+El diseño arquitectónico de este laboratorio colaborativo es ilustrado en la **Figura 1**, representando una topología distribuida geográficamente entre dos centros de datos.
 
 **Figura 1**
-*Topología Operativa del Laboratorio 4: Host ESXi Individual con Almacenamiento Distribuido y Redes Aisladas*
+*Arquitectura Empresarial VMware vSphere 8.0: Data Centers Lima y Arequipa*
 
-<img width="1165" height="649" alt="image" src="https://github.com/user-attachments/assets/7173df97-0913-456a-b01a-2907d17669be" />
+> **[PROMPT PARA IMAGEN GENERADA CON IA - TOPOLOGÍA LAB 06]**
+> *Prompt:* `Hand-drawn comprehensive enterprise data center architecture diagram, isolated on a transparent background (pure solid white for easy cutout), no whiteboard. Top section: A dashed box labeled "VCHA" containing three "vCenter Server" blocks (Active, Passive, Witness) connected to a "Management Switch". Below this, a cloud labeled "Management & Inter-DC Backbone". Left section: A boundary labeled "Lima DC (Site A)" containing a "3-node ESXi Cluster" (ESXi-L01, ESXi-L02, ESXi-L03) all pointing down to a single cylinder labeled "vSAN Datastore". Right section: A boundary labeled "Arequipa DC (Site B)" containing a "2-node ESXi Cluster" (ESXi-A01, ESXi-A02) connected to a cylinder labeled "NAS Storage Appliance (iSCSI/NFS)". Bottom center: A unified logical switch connecting both sites labeled "vSphere Distributed Switch (vDS)". Simple line art, blue, green, and orange ink, Fortinet documentation style, minimalist, Spanish text labels --ar 16:9`
 
-*Nota.* Elaboración propia. La imagen destaca la habilitación de cuatro volúmenes de almacenamiento conectados a un único hipervisor, la segmentación interna mediante nuevos conmutadores lógicos para Producción y Desarrollo, y el aprovisionamiento de máquinas virtuales (Alpine Linux) distribuidas equitativamente.
+*Nota.* Elaboración propia. La imagen ilustra la topología objetivo del caso práctico, donde dos sitios físicos independientes son unificados bajo una misma capa de orquestación y red distribuida.
 
-### Topología Lógica de Infraestructura (Formato Texto)
-Para facilitar la comprensión de las relaciones lógicas que serán configuradas durante el laboratorio mediante comandos, el siguiente mapa estructural debe ser analizado:
+## 1. Escenario de Negocio (CBL - Aprendizaje Basado en Casos)
+**Contexto Organizacional:**
+Una de las instituciones financieras más grandes del país ha iniciado el "Proyecto Bicentenario". El objetivo es garantizar la continuidad del negocio ante desastres naturales. Se ha construido un Centro de Datos Primario en Lima (Site A) y un Centro de Datos Secundario en Arequipa (Site B).
 
-```text
-=======================================================================
-TOPOLOGÍA LÓGICA DEL HIPERVISOR (MAPA DE CONFIGURACIÓN)
-=======================================================================
-[ HIPERVISOR ESXi ] -> Hostname: esxi-01-[apellido]
+**El Problema:**
+Actualmente, ambos centros de datos operan como islas aisladas. Si un servidor en Lima falla críticamente, la recuperación en Arequipa requiere intervención manual, causando interrupciones inaceptables en los servicios financieros.
 
-  1. CAPA DE REDES (vSwitches & Port Groups)
-     ├─ vSwitch0 (Gestión Base) 
-     │   ├─ Management Network  -> vmk0 (10.160.10.10) -> Uplink: vmnic0
-     │   └─ Storage Network     -> vmk1 (10.160.10.11) (Para iSCSI/NFS)
-     │
-     ├─ vSwitch1 (Red Aislada: Producción)
-     │   └─ PG: Red-Produccion  -> Sin Uplink físico (Aislamiento total L2)
-     │
-     └─ vSwitch2 (Red Aislada: Desarrollo)
-         └─ PG: Red-Desarrollo  -> Sin Uplink físico (Aislamiento total L2)
-
-  2. CAPA DE ALMACENAMIENTO (Datastores)
-     ├─ DAS-SCSI-01      (Disco Local / Tecnología SCSI / VMFS-6)
-     ├─ DAS-NVMe-01      (Disco Local / Tecnología NVMe / VMFS-6)
-     ├─ SAN-iSCSI-01     (Red de Bloques / TrueNAS / VMFS-6)
-     └─ NAS-NFS-Shared   (Red de Archivos / TrueNAS / NFSv3)
-         ├─ /_ISOs       (Repositorio de imágenes de SO)
-         └─ /_Software   (Repositorio de aplicativos)
-
-  3. CAPA DE CÓMPUTO (Máquinas Virtuales - Alpine Linux)
-     ├─ Alpine-SCSI-Prod -> Datastore: DAS-SCSI-01  -> Red: Red-Produccion
-     ├─ Alpine-NVMe-Prod -> Datastore: DAS-NVMe-01  -> Red: Red-Produccion
-     ├─ Alpine-iSCSI-Dev -> Datastore: SAN-iSCSI-01 -> Red: Red-Desarrollo
-     └─ Alpine-NFS-Dev   -> Datastore: NAS-NFS-Shared-> Red: Red-Desarrollo
-=======================================================================
-```
-
-## 1. Escenario de Negocio
-Como Administrador de Infraestructura de la corporación *ACME Corp*, el hipervisor base autónomo ha sido desplegado exitosamente. Un nuevo mandato de seguridad de la arquitectura exige que los entornos de **Desarrollo** y **Producción** operen en conmutadores lógicos separados (aislamiento estricto de Capa 2). Paralelamente, se requiere la consolidación de cuatro tecnologías de almacenamiento (SCSI, NVMe, iSCSI y NFS) conectadas al mismo servidor físico. Su misión final será validar la viabilidad operativa desplegando una flota de micro-servidores virtuales (*Alpine Linux*), alojando una instancia en cada repositorio de datos y distribuyéndolas a través de las nuevas redes segregadas.
+**El Reto Técnico (Misión del Equipo):**
+Ustedes han sido contratados como un escuadrón de Arquitectos de Infraestructura (*Senior Architects*). Su misión es unificar ambos sitios. El Sitio de Lima será configurado con una arquitectura hiperconvergente mediante **vSAN** (utilizando los discos locales de los hosts). El Sitio de Arequipa utilizará almacenamiento tradicional externo (NAS/NFS). Finalmente, una red distribuida (**vDS**) deberá extenderse entre ambas ciudades para permitir que las máquinas virtuales sean migradas en caliente de Lima a Arequipa (*Cross-Site vMotion*) sin pérdida de conectividad ni cambio de direcciones IP.
 
 ## 2. Objetivos de la Práctica
-*   Estandarizar el *hostname* (nombre de host) del hipervisor basándose en la nomenclatura corporativa.
-*   Diseñar y aprovisionar conmutadores virtuales (`vSwitch1` y `vSwitch2`) mediante línea de comandos (CLI) para segregar el tráfico de Producción y Desarrollo.
-*   Aprovisionar discos locales (SCSI y NVMe) con el sistema de archivos VMFS-6.
-*   Integrar un dispositivo *TrueNAS* para exportar bloques lógicos (iSCSI) y directorios de red (NFS), creando una estructura jerárquica de carpetas (`_ISOs`).
-*   Validar la operatividad global mediante el despliegue concurrente de cuatro máquinas virtuales asociadas a diferentes *Datastores* y redes lógicas.
+*   Planificar y coordinar el despliegue de una topología unificada utilizando recursos de hardware distribuidos (Dos PCs físicas conectadas en LAN).
+*   Desplegar un entorno hiperconvergente habilitando un **Clúster vSAN** de 3 nodos.
+*   Configurar un **vSphere Distributed Switch (vDS)** que abarque hosts ubicados en diferentes clústeres lógicos.
+*   Administrar un vCenter Server unificado para gobernar múltiples Centros de Datos virtuales (Datacenters lógicos).
+*   Ejecutar una migración en caliente (*vMotion*) cruzando fronteras de almacenamiento y clúster (*Cross-Cluster/Cross-Datastore vMotion*).
 
-## 3. Requisitos Previos
-*   Haber aprobado la **Guía de Laboratorio 03**.
-*   **Identidad Corporativa:** El *hostname* del servidor ESXi deberá estar configurado con la primera letra del nombre y el apellido paterno del estudiante (Ej. `jperez`).
-*   **Adición de Hardware Local:** La máquina virtual ESXi en *VMware Workstation* debe tener configurados dos discos duros virtuales adicionales de 20 GB cada uno (uno tipo **SCSI** y otro **NVMe**).
-*   **Medios de Instalación:** La imagen ISO de **Alpine Linux** (`alpine-standard-x.x.x-x86_64.iso`) debe estar descargada en su PC físico.
-*   **Dispositivo de Almacenamiento:** Una máquina virtual *TrueNAS* operativa en la subred NAT (`10.160.10.200`), con recursos disponibles para iSCSI y NFS.
+## 3. Asignación de Roles y Requisitos de Hardware
+Dado que la topología global supera los límites de un computador personal, la carga de virtualización anidada (*Nested Virtualization*) será balanceada entre dos estudiantes. Ambos computadores (PC-1 y PC-2) deben estar conectados al mismo conmutador físico (LAN del laboratorio) y contar con 32 GB de RAM cada uno.
+
+**Estudiante 1 (Arquitecto Site A - Lima):**
+*   **Recursos Asignados (PC-1):** 3 Máquinas Virtuales ESXi (`ESXi-L01`, `ESXi-L02`, `ESXi-L03`). Cada host configurado con 6 GB de RAM y dos discos virtuales (uno para sistema, otro para vSAN). Total de RAM consumida: ~18 GB.
+*   **Responsabilidad:** Creación del Clúster de Lima y aprovisionamiento del *Datastore* hiperconvergente vSAN.
+
+**Estudiante 2 (Arquitecto Site B - Arequipa y Gestión Global):**
+*   **Recursos Asignados (PC-2):** 2 Máquinas Virtuales ESXi (`ESXi-A01`, `ESXi-A02`) con 6 GB de RAM cada una; 1 Máquina *TrueNAS* (NAS Appliance) con 4 GB de RAM; y 1 *vCenter Server Appliance* (VCSA - Despliegue *Tiny*) con 12 GB de RAM. Total de RAM consumida: ~28 GB.
+*   **Responsabilidad:** Aprovisionamiento del almacenamiento externo, despliegue del orquestador central (vCenter) y creación del conmutador distribuido (vDS).
 
 ---
 
-## 4. Instrucciones Paso a Paso
+## 4. Instrucciones Paso a Paso (Ejecución Colaborativa)
 
-### Fase 1: Identidad y Preparación de Red de Almacenamiento (VMkernel)
-1. Ingrese a la Interfaz Web (*VMware Host Client*) a través de su navegador (`https://10.160.10.10`).
-2. Navegue a **Networking > TCP/IP stacks > Default TCP/IP stack > Edit**. Modifique el *Host name* utilizando su inicial y apellido (Ej. `jperez`). Guarde los cambios.
-3. En la pestaña **VMkernel NICs**, haga clic en **Add VMkernel NIC**.
-4. Defina un nuevo *Port Group* llamado `Storage-Network` conectado al conmutador `vSwitch0`.
-5. Asigne una IPv4 estática dedicada al almacenamiento: `10.160.10.11` (Máscara `255.255.255.0`). Haga clic en **Create**.
+### Fase 1: Despliegue de Nodos y Conectividad Base (Ambos Estudiantes)
+*La base de cómputo debe ser establecida y las direcciones IP deben ser alcanzables entre ambos computadores físicos.*
+1.  **(Estudiante 1):** En *VMware Workstation*, despliegue los tres hosts del Sitio A. Asigne direcciones IP estáticas secuenciales (Ej. `10.160.10.11`, `.12`, `.13`). Asegúrese de agregar un disco adicional de 100 GB a cada host, el cual será reclamado posteriormente por vSAN.
+2.  **(Estudiante 2):** Despliegue los dos hosts del Sitio B (`10.160.10.21`, `.22`) y la máquina TrueNAS (`10.160.10.200`).
+3.  **(Colaboración):** Desde la consola de comandos de un host en el Sitio A, un paquete ICMP (Ping) debe ser enviado hacia un host del Sitio B. Si la respuesta es exitosa, la conectividad inter-sitio (Backbone) está garantizada.
 
-### Fase 2: Segregación de Redes (Producción y Desarrollo vía CLI)
-*El aislamiento de los entornos debe ser configurado desde la consola.*
-1. Abra su cliente **PuTTY** (SSH) y conéctese a la IP `10.160.10.10` como usuario `root`.
-2. Aprovisione el conmutador virtual para **Producción** ejecutando:
-   `esxcfg-vswitch -a vSwitch1`
-3. Aprovisione el conmutador virtual para **Desarrollo** ejecutando:
-   `esxcfg-vswitch -a vSwitch2`
-4. Cree los Grupos de Puertos (*Port Groups*) correspondientes en cada conmutador recién creado:
-   `esxcfg-vswitch -A "Red-Produccion" vSwitch1`
-   `esxcfg-vswitch -A "Red-Desarrollo" vSwitch2`
-5. Verifique que ambos conmutadores lógicos hayan sido creados correctamente listando la configuración:
-   `esxcfg-vswitch -l`
+### Fase 2: Orquestación Centralizada (Estudiante 2 con apoyo de Estudiante 1)
+*Un único punto de control será establecido para gobernar ambas ciudades.*
+1.  **(Estudiante 2):** Monte la imagen ISO de vCenter Server Appliance (VCSA). Ejecute el instalador UI y despliegue la *appliance* con tamaño "Tiny" apuntando al host `ESXi-A01`. Asigne la IP `10.160.10.5` al vCenter.
+2.  **(Estudiante 2):** Una vez que vCenter esté operativo, ingrese a la interfaz web (vSphere Client). Cree dos objetos de tipo "Datacenter": uno nombrado `Datacenter-Lima` y otro `Datacenter-Arequipa`.
+3.  **(Estudiante 1):** Proporcione las credenciales `root` de sus tres hosts al Estudiante 2.
+4.  **(Estudiante 2):** Añada los hosts `ESXi-L01`, `L02` y `L03` al `Datacenter-Lima`. Seguidamente, añada los hosts `ESXi-A01` y `A02` al `Datacenter-Arequipa`.
 
-### Fase 3: Creación de Datastores Locales (SCSI y NVMe)
-1. Retorne al *VMware Host Client* web. En el panel izquierdo, seleccione **Storage** (Almacenamiento) > **Datastores** > **New datastore**.
-2. Seleccione **Create new VMFS datastore** y presione *Next*.
-3. Nombre el almacén como `DAS-SCSI-01`, seleccione el disco SCSI de 20 GB de la lista, elija **VMFS 6** y asigne todo el espacio disponible. Finalice el asistente.
-4. Repita el proceso para el segundo disco. Nombre el almacén como `DAS-NVMe-01` y seleccione el disco con tecnología NVMe.
+### Fase 3: Configuración de Almacenamiento Dispar (Roles Divididos)
+*Cada centro de datos utilizará una arquitectura de persistencia de datos diferente.*
+1.  **(Estudiante 1 - Lima):** En vCenter, cree un Clúster lógico dentro del `Datacenter-Lima` e introduzca sus tres hosts en él. En la configuración del clúster, habilite el servicio **vSAN**. Complete el asistente reclamando los discos vacíos de 100 GB de cada host para conformar un único *Datastore* hiperconvergente distribuido (`vsanDatastore`).
+2.  **(Estudiante 2 - Arequipa):** Acceda a TrueNAS y exporte un recurso compartido NFS. En vCenter, cree un Clúster en el `Datacenter-Arequipa` e integre sus dos hosts. Vaya a la pestaña de almacenamiento de este clúster y monte el volumen NFS remoto (nombrado `NAS-Arequipa-NFS`).
 
-### Fase 4: Integración de Almacenamiento Externo (iSCSI y NFS)
-*Los protocolos de red aprovisionados en TrueNAS serán montados en este paso.*
-1. **Montaje NAS (NFS):**
-   *   Vaya a **Storage > New datastore > Mount NFS datastore**.
-   *   Nombre: `NAS-NFS-Shared`. Servidor NFS: `10.160.10.200`. Recurso compartido: `/mnt/Pool-VMware/NFS-Share`. Versión: **NFS 3**. Presione *Finish*.
-2. **Montaje SAN (iSCSI):**
-   *   En *Storage*, vaya a la pestaña **Adapters**. Haga clic en **Software iSCSI**.
-   *   Habilite el servicio y en **Dynamic targets** agregue la IP de TrueNAS (`10.160.10.200`). Guarde la configuración.
-   *   Vaya a **Datastores > New datastore > Create new VMFS datastore**.
-   *   Nombre el almacén como `SAN-iSCSI-01`, seleccione el disco de TrueNAS descubierto en la red y formatéelo con **VMFS 6**.
+### Fase 4: Despliegue de Red Distribuida vDS (Colaborativo)
+*La Capa 2 de red será extendida a través del backbone para unificar ambas ciudades lógicamente.*
+1.  **(Estudiante 2):** En vCenter, diríjase a la vista de Redes (*Networking*). A nivel global, cree un nuevo **vSphere Distributed Switch (vDS)** denominado `vDS-Inter-DC`.
+2.  Cree un Grupo de Puertos Distribuido (*Distributed Port Group*) denominado `Red-Produccion-Global`.
+3.  Haga clic derecho en el `vDS-Inter-DC` y seleccione **Add and Manage Hosts** (Agregar y administrar hosts).
+4.  **(Colaboración):** Seleccione los 5 hosts totales (3 de Lima y 2 de Arequipa). Asigne al menos un enlace físico (*vmnic*) de cada host como Uplink del vDS. Finalice el asistente. La red ha sido extendida exitosamente entre ambas sedes.
 
-### Fase 5: Estructuración de Directorios y Carga de Medios
-1. En la pestaña *Datastores*, haga clic derecho sobre `NAS-NFS-Shared` y seleccione **Browse** (Explorar).
-2. Utilizando la opción **Create directory**, genere las carpetas `_ISOs` y `_Software` para estandarizar el repositorio.
-3. Ingrese a la carpeta `_ISOs` y haga clic en **Upload** (Cargar). Busque en su PC el archivo `alpine-standard.iso` y espere a que la carga finalice al 100%.
-
-### Fase 6: Despliegue Distribuido y Aislado de VMs
-*Las máquinas virtuales serán mapeadas siguiendo estrictamente la Topología Lógica.*
-1. Diríjase a **Virtual Machines** y haga clic en **Create / Register VM**.
-2. **Creación VM 1 (Producción / SCSI):** 
-   *   Nombre: `Alpine-SCSI-Prod`. Guest OS: `Linux` / `Other 3.x Linux (64-bit)`.
-   *   **Almacenamiento:** Seleccione `DAS-SCSI-01`.
-   *   **Red (Network Adapter 1):** Cambie la red a **Red-Produccion**.
-   *   Hardware: 1 vCPU, 512 MB RAM, 2 GB Disco (*Thin provisioned*).
-   *   CD/DVD: *Datastore ISO file*. Apunte al archivo ISO de Alpine cargado en el NFS.
-3. Repita el asistente para crear las tres máquinas restantes respetando las siguientes variables:
-   *   **VM 2:** Nombre `Alpine-NVMe-Prod` | Datastore: `DAS-NVMe-01` | Red: **Red-Produccion**.
-   *   **VM 3:** Nombre `Alpine-iSCSI-Dev` | Datastore: `SAN-iSCSI-01` | Red: **Red-Desarrollo**.
-   *   **VM 4:** Nombre `Alpine-NFS-Dev` | Datastore: `NAS-NFS-Shared`| Red: **Red-Desarrollo**.
-4. Encienda las cuatro máquinas virtuales.
+### Fase 5: Validación Operativa y Migración (Cross-Site vMotion)
+*El escenario de negocio será resuelto moviendo una carga crítica entre ciudades sin apagarla.*
+1.  **(Estudiante 1):** Cree una máquina virtual de prueba (`VM-APP-Finanzas`) en el Clúster de Lima. Alójela en el `vsanDatastore` y conéctela al grupo de puertos distribuido `Red-Produccion-Global`.
+2.  Encienda la máquina e inicie un comando `ping` continuo desde su PC física hacia la IP de esta VM.
+3.  **(Colaboración):** Suponga que el Sitio A (Lima) experimentará un corte eléctrico inminente programado. Haga clic derecho sobre `VM-APP-Finanzas` y seleccione **Migrate** (Migrar).
+4.  Seleccione **Change both compute resource and storage** (Cambiar tanto recurso de cómputo como almacenamiento).
+5.  Como destino de cómputo, seleccione un host del Clúster de Arequipa (Ej. `ESXi-A01`). Como destino de almacenamiento, seleccione el `NAS-Arequipa-NFS`.
+6.  Finalice el asistente. Observe la ventana de *Recent Tasks* mientras la máquina es transferida a través de la red física del laboratorio hacia la PC del Estudiante 2, manteniendo el `ping` ininterrumpido.
 
 ---
 
 ## 5. Criterio de Validación y Evidencias
-Para cumplir con el objetivo formativo, las siguientes capturas de pantalla deberán ser generadas y anexadas a su informe técnico:
-1.  **Auditoría de Redes Aisladas (CLI):** Abra PuTTY (SSH), ejecute `hostname` y luego `esxcfg-vswitch -l` para evidenciar la existencia de los tres conmutadores (`vSwitch0`, `vSwitch1`, `vSwitch2`).
-2.  **Auditoría de Almacenamiento (CLI):** Ejecute el comando `esxcli storage filesystem list` para demostrar que los cuatro volúmenes (SCSI, NVMe, iSCSI, NFS) se encuentran montados correctamente en el sistema de archivos del núcleo.
-3.  **Auditoría de Orquestación (Web):** Capture la pantalla del *VMware Host Client* (Sección Virtual Machines), donde se visualicen las cuatro máquinas `Alpine-*` en estado **Encendido**. Se debe apreciar en las columnas correspondientes que están distribuidas rigurosamente en las redes de Producción y Desarrollo.
-
-## 6. Reto de Expertos (Opcional)
-En este laboratorio, los conmutadores lógicos de Producción y Desarrollo (`vSwitch1` y `vSwitch2`) fueron creados sin asignarles tarjetas de red físicas (Uplinks), logrando un aislamiento total (Host-Only).
-*   **El Reto:** Asuma que su servidor físico dispone de una tarjeta de red adicional (`vmnic2`). Utilizando sus conocimientos de comandos CLI aprendidos en laboratorios previos, detalle (no ejecute, solo detalle en su informe) cuál sería la sintaxis exacta del comando `esxcfg-vswitch` requerida para enlazar el adaptador físico `vmnic2` al conmutador `vSwitch1` (Producción), permitiendo que esas máquinas tengan salida a Internet o al resto de la corporación.
+Para cumplir con el objetivo formativo de esta sesión integradora, las siguientes evidencias deberán ser generadas y presentadas conjuntamente por el equipo:
+1.  **Auditoría de Inventario (vCenter):** Una captura del cliente vSphere mostrando el inventario completo, donde se evidencien los dos Datacenters (Lima y Arequipa) poblados con sus respectivos clústeres y hosts.
+2.  **Auditoría de Almacenamiento (vSAN y NFS):** Una captura de la vista de almacenamiento evidenciando que el `vsanDatastore` cuenta con una capacidad consolidada (sumatoria de los 3 discos de los hosts) y que el `NAS-Arequipa-NFS` se encuentra montado.
+3.  **Topología de Red (vDS):** Una captura de la vista *Topology* del conmutador distribuido, demostrando que hosts de ambos sitios (`ESXi-L01` y `ESXi-A01`) están enlazados al mismo vDS.
+4.  **Éxito del Escenario:** Una captura final del panel de Tareas Recientes (*Recent Tasks*) mostrando la tarea de "Relocate virtual machine" (Migración cruzada) con el estado de *Completed* al 100%.
 
 ---
 
-## 7. Rúbrica de Evaluación: Laboratorio 4 (Escala Vigesimal)
+## 6. Rúbrica de Evaluación: Laboratorio 6 (Escala Vigesimal - Evaluación Grupal)
 
-**Puntaje Máximo:** 20 puntos. Se requiere un mínimo de 14/20 para aprobar la práctica.
+**Puntaje Máximo:** 20 puntos. Se requiere un mínimo de 14/20 para aprobar la práctica. La calificación será asignada al equipo en conjunto.
 
 | Criterio Evaluado | Excelente (4 pts) | Bueno (3 pts) | Regular (2 pts) | Deficiente (1 pt) |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Identidad y Red de Storage** | *Hostname* estandarizado exitosamente con el apellido. Puerto `vmk1` creado de manera estática (`10.160.10.11`). | Puerto `vmk1` creado, pero el *hostname* carece de la nomenclatura corporativa solicitada (`jperez`). | El puerto de red fue dejado en DHCP o asignado a un switch erróneo. | El *hostname* no fue editado y la red de almacenamiento no fue creada. |
-| **2. Segregación de Redes (CLI)** | `vSwitch1` (Prod) y `vSwitch2` (Dev) creados por comando junto con sus respectivos *Port Groups* sin errores. | Los vSwitches fueron creados en consola, pero hubo errores tipográficos en los nombres de los *Port Groups*. | La segregación de redes fue evadida mediante consola, realizándose exclusivamente a través de la interfaz web. | Los conmutadores de red aislados no fueron aprovisionados en el sistema. |
-| **3. Consolidación de Almacenamiento** | Los 4 Datastores (SCSI, NVMe, iSCSI, NFS) fueron descubiertos y montados. Carpetas jerárquicas creadas en el NAS. | Los 4 Datastores fueron montados, pero se omitió crear la estructura de carpetas (`_ISOs`) o cargar el archivo de Alpine. | Solo los discos locales fueron formateados; el almacenamiento en red (TrueNAS) falló en su montaje. | Incapacidad para inicializar el almacenamiento o integrar el dispositivo externo. |
-| **4. Despliegue Distribuido de VMs** | Las 4 VMs fueron creadas, encendidas y mapeadas de forma exacta a sus respectivos Datastores y Redes (Prod/Dev). | Las 4 VMs fueron creadas, pero hubo un error de mapeo (ej. asignar una VM de Producción a la red de Desarrollo). | Las VMs fueron creadas pero no pudieron arrancar al no localizar la imagen ISO en el almacenamiento compartido. | El despliegue de las cargas de trabajo no fue ejecutado por el alumno. |
-| **5. Documentación CLI y Reto** | Capturas finales (`hostname`, `vswitch -l`, `filesystem list`) generadas impecablemente. Reto Experto argumentado con la sintaxis correcta. | Capturas de CLI anexadas cubriendo los requisitos, pero el Reto Experto (Uplinks) fue omitido. | Evidencias adjuntadas desde la interfaz web, evadiendo la instrucción obligatoria de usar comandos CLI. | Ausencia total de evidencias gráficas y comandos en el reporte técnico final. |
+| **1. Arquitectura Base e Interconexión** | Los 5 hosts y TrueNAS son desplegados; el *ping* inter-PCs es exitoso. Los recursos físicos fueron balanceados impecablemente entre los estudiantes. | Los nodos fueron desplegados, pero se experimentaron demoras en la conectividad física LAN entre las dos PCs de los estudiantes. | Al menos un nodo ESXi no pudo ser integrado a la red, requiriendo que la topología se reduzca para continuar. | La comunicación entre la PC-1 y la PC-2 falló; el laboratorio no pudo ser integrado. |
+| **2. Orquestación Central (vCenter)** | vCenter es desplegado correctamente; la taxonomía lógica (2 Datacenters, 2 Clústeres) es estructurada y poblada sin errores. | vCenter es operativo, pero los hosts fueron agregados sin la estructura lógica solicitada (Datacenters/Clusters). | El despliegue de vCenter requirió múltiples reintentos debido a fallas de DNS o recursos de RAM mal calculados. | vCenter no logró arrancar o sus servicios colapsaron permanentemente. |
+| **3. Almacenamiento Heterogéneo** | vSAN es habilitado consolidando los discos de Lima, y NFS es montado en Arequipa de forma estable. | Ambas tecnologías fueron configuradas, pero surgieron alertas de salud (*Health Checks*) menores en el clúster vSAN. | Solo una de las tecnologías de almacenamiento (vSAN o NFS) logró ser aprovisionada de manera funcional. | Ninguno de los almacenamientos compartidos pudo ser inicializado. |
+| **4. Redes Distribuidas (vDS)** | El vDS es creado y los 5 hosts de diferentes sitios lógicos son adheridos a él exitosamente mediante sus Uplinks. | El vDS es creado, pero solo los hosts de un sitio fueron adheridos al mismo. | El vDS presenta advertencias de desajuste de MTU (Maximum Transmission Unit) o falta de Uplinks operativos. | La topología de red se mantuvo en vSwitches estándar; el vDS fue evadido. |
+| **5. Resolución del Caso (Migración)** | El *Cross-vMotion* fue ejecutado exitosamente, trasladando cómputo y almacenamiento entre ciudades (PCs) sin corte de ping. | La migración concluyó, pero se experimentó una caída temporal de la red del *Guest OS* durante el proceso. | La migración falló a medio camino por diferencias de compatibilidad de procesador (EVC no habilitado). | El escenario de negocio no fue superado; la VM no logró ser migrada de sitio. |
 
-**Puntaje Total Obtenido:** ___ / 20
+**Puntaje Total Obtenido por el Equipo:** ___ / 20
+
+---
+
+### Referencias
+
+Broadcom. (2024e). *VMware vSAN 8.0 Architecture and Planning Guide*. VMware Docs. Recuperado de https://docs.vmware.com
+
+Broadcom. (2024f). *vSphere Networking: Distributed Switches*. VMware Technical Library.
+
+IBM. (2023). *Cross-Site Virtual Machine Mobility and Disaster Recovery*. IBM IT Resiliency Guides.
+
+Intel Corporation. (2023). *Intel® 64 and IA-32 Architectures Software Developer’s Manual*.
+
+VMware. (2023). *vCenter Server and Host Management: Advanced vMotion*. Broadcom Knowledge Base.
