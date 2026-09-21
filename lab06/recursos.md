@@ -1,4 +1,4 @@
-# GUÍA DE LABORATORIO 6: ALMACENAMIENTO HÍBRIDO Y SEGREGACIÓN DE REDES (PRODUCCIÓN Y DESARROLLO)
+# GUÍA DE LABORATORIO 6: ALMACENAMIENTO HÍBRIDO Y SEGREGACIÓN DE REDES
 
 La arquitectura de despliegue correspondiente a esta sesión práctica, enfocada en un único host autónomo, es ilustrada de forma gráfica en la **Figura 1** y detallada lógicamente en la **Topología de Texto** adjunta.
 
